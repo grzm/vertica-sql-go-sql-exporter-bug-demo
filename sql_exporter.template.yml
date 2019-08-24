@@ -1,0 +1,108 @@
+global:
+  scrape_timeout_offset: 5000ms
+  min_interval: 0s
+  max_connections: 1
+  max_idle_connections: 1
+
+target:
+  data_source_name: "vertica://dbadmin:PASSWORD@HOST:5433/DBNAME"
+  collectors:
+    - base
+
+collectors:
+  - collector_name: base
+    queries:
+      - query_name: vertica_epoch_status
+        query: |
+          SELECT current_epoch,
+                 ahm_epoch,
+                 last_good_epoch,
+                 last_good_epoch - ahm_epoch as ahm_epoch_lag,
+                 designed_fault_tolerance,
+                 current_fault_tolerance,
+                 wos_used_bytes,
+                 ros_used_bytes
+            FROM v_monitor.system
+
+    metrics:
+      - metric_name: vertica_local_time_seconds
+        type: gauge
+        help: Local time in seconds since Unix epoch
+        values: [epoch]
+        query: |
+          SELECT EXTRACT(epoch FROM current_timestamp) AS epoch
+
+      - metric_name: vertica_node_state
+        type: gauge
+        key_labels: [node_name, node_state]
+        help: Node status of each node
+        values: [count]
+        query: |
+          SELECT node_name, lower(node_state) as node_state, count(*)
+          FROM v_catalog.nodes
+          GROUP BY node_name, node_state
+
+      - metric_name: vertica_delete_vectors
+        type: gauge
+        help: Vertica delete vectors
+        values: [count]
+        query: |
+          SELECT count(*) FROM v_monitor.delete_vectors
+
+      - metric_name: vertica_locks
+        type: gauge
+        help: Vertica locks
+        key_labels: [mode, scope, object_name]
+        values: [count]
+        query: |
+          SELECT lower(locks.lock_mode) as mode, lower(locks.lock_scope) as scope, object_name, count(*)
+          FROM v_monitor.locks
+          GROUP BY lower(lock_mode), lower(lock_scope), object_name;
+
+      - metric_name: vertica_current_epoch
+        type: counter
+        help: Current Epoch
+        query_ref: vertica_epoch_status
+        values: [current_epoch]
+
+      - metric_name: vertica_ahm_epoch
+        type: counter
+        help: Ancient History Marker Epoch
+        query_ref: vertica_epoch_status
+        values: [ahm_epoch]
+
+      - metric_name: vertica_last_good_epoch
+        type: counter
+        help: Last Good Epoch
+        query_ref: vertica_epoch_status
+        values: [last_good_epoch]
+
+      - metric_name: vertica_ahm_epoch_lag
+        type: gauge
+        help: Lag of AHM epoch behind Last Good Epoch
+        query_ref: vertica_epoch_status
+        values: [ahm_epoch_lag]
+
+      - metric_name: vertica_designed_fault_tolerance
+        type: gauge
+        help: Vertica Designed Fault Tolerance
+        query_ref: vertica_epoch_status
+        values: [designed_fault_tolerance]
+
+      - metric_name: vertica_current_fault_tolerance
+        type: gauge
+        help: Vertica Current Fault Tolerance
+        query_ref: vertica_epoch_status
+        values: [current_fault_tolerance]
+
+      - metric_name: vertica_wos_used_bytes
+        type: gauge
+        help: WOS bytes used
+        query_ref: vertica_epoch_status
+        values: [wos_used_bytes]
+
+      - metric_name: vertica_ros_used_bytes
+        type: gauge
+        help: ROS bytes used
+        query_ref: vertica_epoch_status
+        values: [ros_used_bytes]

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -eux
+
+go get github.com/free/sql_exporter
+pushd ${GOPATH}/src/github.com/free/sql_exporter
+git remote add grzm git@github.com:grzm/sql_exporter.git
+git fetch grzm
+git co grzm/log-queries
+popd
+
+go get github.com/vertica/vertica-sql-go
+pushd ${GOPATH}/src/github.com/vertica/vertica-sql-go
+git remote add huebnerr git@github.com:huebnerr/vertica-sql-go.git
+git fetch huebnerr
+git co -b mutex-experimental huebnerr/mutex-experimental
+popd
+
+go install -a github.com/free/sql_exporter/cmd/sql_exporter
